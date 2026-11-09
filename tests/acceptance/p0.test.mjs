@@ -515,7 +515,7 @@ test('TC-13 [P0] --session-id 用指定 UUID 新建会话并落盘', async (t) =
 
 test('TC-14 [P0] -r 续接成功，保留上一轮上下文', async (t) => {
   const id = '22222222-2222-4222-8222-222222222222'
-  const { ws, stub } = await wsWithStub(t, 'TC-14', ({ n }) => ({ text: n === 1 ? '记住了' : '42' }))
+  const { ws, stub } = await wsWithStub(t, 'TC-14', ({ body }) => ({ text: JSON.stringify(body?.messages ?? []).includes('上一轮的数字') ? '42' : '记住了' }))
 
   const first = await runCli({
     args: ['-p', '--output-format', 'stream-json', '--verbose', '--session-id', id, '请记住数字 42'],

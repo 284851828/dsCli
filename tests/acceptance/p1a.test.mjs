@@ -258,7 +258,9 @@ test('TC-24 [P1] 长文本与长工具结果不截断（≥ 40 KiB）', async (t
   assert.equal(results.length, 1)
   const content = results[0].content
   assert.equal(typeof content, 'string')
-  assert.equal(countOf(content, 'x'), 40000, `tool_result 应含 40000 个 x，实际 ${countOf(content, 'x')}`)
+  // 只数 </path> 之后的内容：read 结果带的文件路径里可能有 x（如 XCODE_SANDBOX=xcode1）
+  const fileText = content.slice(content.indexOf('</path>') + 1)
+  assert.equal(countOf(fileText, 'x'), 40000, `tool_result 应含 40000 个 x，实际 ${countOf(fileText, 'x')}`)
   assert.equal(/truncat/i.test(content), false, '工具结果不应出现截断标记')
 
   const finalText = textsOf(events).at(-1)
@@ -272,7 +274,7 @@ test('TC-24 [P1] 长文本与长工具结果不截断（≥ 40 KiB）', async (t
 
 test('TC-25 [P1] 续接时不输出上一轮的旧 result', async (t) => {
   const id = '55555555-5555-4555-8555-555555555555'
-  const { ws, stub } = await setup(t, 'TC-25', ({ n }) => ({ text: n === 1 ? '旧结果' : '新结果' }))
+  const { ws, stub } = await setup(t, 'TC-25', ({ body }) => ({ text: JSON.stringify(body?.messages ?? []).includes('新任务') ? '新结果' : '旧结果' }))
 
   const first = await runCli({
     args: ['-p', '--session-id', id, '第一轮'],

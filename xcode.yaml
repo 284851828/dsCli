@@ -40,45 +40,8 @@ test_globs:
 env:
   DEEPSEEK_API_KEY: 真实模型密钥，只有 e2e 用；全量测试不需要
 
-# 需求 #14（0.01）开发结束时仍失败的验收用例。开发 AI 认为是测试桩本身的缺陷（重复的 tool_use ID、
-# 续接用例计数、命令行吞参），详见需求 #14 文档目录的 用例质疑.md，等待裁决
-known_failures:
-  - name: "js: acceptance/p0 > TC-12 [P0] --tools 白名单生效，输出使用 Claude 工具名"
-    reason: 用例质疑.md 待裁决
-    owner: 张永
-    until: 需求 #14 裁决后
-  - name: "js: acceptance/p0 > TC-14 [P0] -r 续接成功，保留上一轮上下文"
-    reason: 用例质疑.md 待裁决
-    owner: 张永
-    until: 需求 #14 裁决后
-  - name: "js: acceptance/p1a > TC-24 [P1] 长文本与长工具结果不截断（≥ 40 KiB）"
-    reason: 用例质疑.md 待裁决
-    owner: 张永
-    until: 需求 #14 裁决后
-  - name: "js: acceptance/p1a > TC-25 [P1] 续接时不输出上一轮的旧 result"
-    reason: 用例质疑.md 待裁决
-    owner: 张永
-    until: 需求 #14 裁决后
-  - name: "js: acceptance/p1a > TC-27 [P1] --allowedTools 不能突破 --tools，--disallowedTools 优先"
-    reason: 用例质疑.md 待裁决
-    owner: 张永
-    until: 需求 #14 裁决后
-  - name: "js: acceptance/p1a > TC-29 [P1] bypassPermissions 全放行，plan 只放行只读工具"
-    reason: 用例质疑.md 待裁决
-    owner: 张永
-    until: 需求 #14 裁决后
-  - name: "js: acceptance/p1a > TC-30 [P1] acceptEdits 只放行工作目录与 --add-dir 内的编辑"
-    reason: 用例质疑.md 待裁决
-    owner: 张永
-    until: 需求 #14 裁决后
-  - name: "js: acceptance/p1c > TC-47 [P1] --tools 逗号/空格等价，保留 variadic 吞参行为"
-    reason: 用例质疑.md 待裁决
-    owner: 张永
-    until: 需求 #14 裁决后
-  - name: "js: acceptance/p1c > TC-48 [P1] dontAsk 与 auto 权限模式"
-    reason: 用例质疑.md 待裁决
-    owner: 张永
-    until: 需求 #14 裁决后
+# 已知失败：无。需求 #14 的 9 条用例质疑已于 2026-11-09 人工裁决为测试缺陷并修正
+known_failures: []
 
 # 2026-11-09 实测：全量 193 秒（protocol + unit 约 5 秒，验收 44 条约 3 分钟，已构建的副本）
 duration: 约 4 分钟（已构建）；新副本首次另加 prepare 的安装和构建时间

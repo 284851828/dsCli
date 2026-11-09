@@ -440,7 +440,7 @@ function writeMessagesStream(res, spec, body) {
   const blocks = []
   if (spec.thinking !== undefined) blocks.push({ type: 'thinking', thinking: spec.thinking })
   if (spec.text !== undefined) blocks.push({ type: 'text', text: spec.text })
-  for (const call of spec.calls ?? []) blocks.push({ type: 'tool_use', id: call.id ?? `toolu_stub_${index}_${Date.now()}`, name: call.name, input: call.input ?? {} })
+  for (const call of spec.calls ?? []) blocks.push({ type: 'tool_use', id: call.id ?? `toolu_stub_${blocks.length}_${Date.now()}`, name: call.name, input: call.input ?? {} })
 
   for (const block of blocks) {
     if (block.type === 'thinking') {
