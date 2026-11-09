@@ -1,0 +1,56 @@
+# dscli: Claude Code compatible non-interactive profile over dsh-base.
+- insert:
+    - id: cc-startup
+      name: '@deepseek-ai/dsh-cc-cli/startup'
+    - id: cc-tool-names
+      name: '@deepseek-ai/dsh-cc-cli/tool-names'
+    - id: cc-stream
+      name: '@deepseek-ai/dsh-cc-cli/stream'
+    - id: cc-permissions
+      name: '@deepseek-ai/dsh-cc-cli/permissions'
+    - id: cc-runner
+      name: '@deepseek-ai/dsh-cc-cli'
+      # The alias table defaults in code; override this row's config in a profile patch:
+      # config:
+      #   modelAliases:
+      #     opus: deepseek-pro
+
+# No OS sandbox: permissions are decided by cc-permissions (Claude parity on Windows).
+- id: sandbox-policy
+  config:
+    mode: danger-full-access
+    workspaceRoot: !!js process.cwd()
+
+- id: approval
+  config:
+    policy: never
+
+# R18: no session-log upload and no telemetry by default.
+- id: session-log-deepseek
+  config:
+    enabled: false
+
+- id: session-telemetry-otel
+  disabled: true
+
+# Plain JSONL session logs, readable by any client without a zstd decoder.
+- id: session-persistence-jsonl
+  config:
+    root: !!js dshHomePath('sessions')
+    compression: none
+
+# 0.01 loads no skills (neither ~/.claude nor project skill directories).
+- id: skill-filesystem
+  disabled: true
+- id: tool-skill
+  disabled: true
+
+# Same launch-time credential and no interactive account/authorization rows as headless.
+- id: hmr
+  disabled: true
+- id: credentials
+  disabled: true
+- id: authorization
+  disabled: true
+- id: deepseek-account
+  disabled: true

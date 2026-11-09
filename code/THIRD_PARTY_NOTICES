@@ -1,0 +1,21 @@
+Third-Party Notices
+===================
+
+DeepSeek Harness (DSH)
+----------------------
+
+dsCli is based on the open-source DeepSeek Harness (DSH) workspace.
+
+- Upstream project: DeepSeek Harness
+- Upstream version: 0.2.2-rc.1
+- Pinned commit: fcc0ad4
+- License: MIT
+- Source: https://github.com/deepseek-ai/deepseek-harness
+
+The upstream source is copied under this directory and remains subject to the MIT
+license reproduced in `LICENSE`. dsCli's own additions are also released under the
+MIT license.
+
+Bundled third-party packages retain their own licenses as declared in their package
+manifests and lockfile. All runtime dependencies are installed from the public npm
+registry and are not vendored into this repository.

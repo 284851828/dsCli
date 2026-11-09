@@ -1,0 +1,12 @@
+#!/bin/sh
+# dsCli: Claude Code compatible entry over the DSH dscli profile.
+# Bridges ANTHROPIC_* only when the DSH variable is unset; never stores keys.
+dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+[ -z "$DEEPSEEK_API_KEY" ] && [ -n "$ANTHROPIC_AUTH_TOKEN" ] && export DEEPSEEK_API_KEY="$ANTHROPIC_AUTH_TOKEN"
+[ -z "$DEEPSEEK_API_KEY" ] && [ -n "$ANTHROPIC_API_KEY" ] && export DEEPSEEK_API_KEY="$ANTHROPIC_API_KEY"
+[ -z "$DEEPSEEK_BASE_URL" ] && [ -n "$ANTHROPIC_BASE_URL" ] && export DEEPSEEK_BASE_URL="$ANTHROPIC_BASE_URL"
+[ -z "$DSCLI_MODEL" ] && [ -n "$ANTHROPIC_MODEL" ] && export DSCLI_MODEL="$ANTHROPIC_MODEL"
+if [ -n "$DSCLI_PATCH" ]; then
+  exec node "$dir/../apps/cli/lib/bin.js" --profile dscli --patch "$DSCLI_PATCH" "$@"
+fi
+exec node "$dir/../apps/cli/lib/bin.js" --profile dscli "$@"
