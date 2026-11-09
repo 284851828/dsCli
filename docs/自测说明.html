@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>自测说明</title>
+<style>
+:root{--fg:#1f2328;--muted:#59636e;--bg:#fff;--line:#d1d9e0;--code:#f6f8fa;--link:#0969da}
+@media (prefers-color-scheme: dark){:root{--fg:#e6edf3;--muted:#9198a1;--bg:#0d1117;--line:#3d444d;--code:#151b23;--link:#4493f8}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.doc{max-width:980px;margin:0 auto;padding:24px 16px}
+.doc h1,.doc h2,.doc h3{line-height:1.3;margin:1.4em 0 .6em}
+.doc h1{font-size:1.7em;border-bottom:1px solid var(--line);padding-bottom:.3em}
+.doc h2{font-size:1.35em;border-bottom:1px solid var(--line);padding-bottom:.2em}
+.doc a{color:var(--link)}
+.doc table{border-collapse:collapse;display:block;overflow-x:auto;margin:1em 0}
+.doc th,.doc td{border:1px solid var(--line);padding:6px 12px;vertical-align:top}
+.doc th{background:var(--code)}
+.doc code{background:var(--code);padding:.15em .35em;border-radius:4px;font-size:.9em}
+.doc pre{background:var(--code);padding:12px;border-radius:6px;overflow-x:auto}
+.doc pre code{padding:0;background:none}
+.doc blockquote{margin:1em 0;padding:0 1em;color:var(--muted);border-left:4px solid var(--line)}
+.doc img{max-width:100%}
+</style></head>
+<body><article class="doc"><h1 id="dscli-">dsCli 自测说明</h1>
+<blockquote>
+<p>对应 xCode《老项目自动化测试标准》v1.0。规则和协议见 <a href="%E6%B5%8B%E8%AF%95%E8%A7%84%E8%8C%83.md">测试规范</a>，机器可读的配置见根目录 <code>xcode.yaml</code>、<code>xcode.json</code>。
+最后更新：2026-11-09　｜　维护人：张永</p>
+</blockquote>
+<h2 id="1-">1. 环境要求</h2>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>版本</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Node.js</td>
+<td>≥ 24.9（实测 24.14）</td>
+<td>上游 DSH 的要求</td>
+</tr>
+<tr>
+<td>pnpm</td>
+<td>11.x（实测 11.28.5）</td>
+<td>装依赖、构建</td>
+</tr>
+<tr>
+<td>操作系统</td>
+<td>Windows 10/11（主要）；macOS、Linux 也可以</td>
+<td>验收测试经 <code>cmd</code> 调用 <code>code\bin\dsCli.cmd</code></td>
+</tr>
+</tbody>
+</table>
+<p>不需要数据库、Redis、端口配置。全量测试<strong>不需要任何密钥、不联网</strong>。</p>
+<p>只有 e2e 需要的环境变量（值放本机环境变量或被 git 忽略的 <code>info.txt</code>）：</p>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DEEPSEEK_API_KEY</code></td>
+<td>真实模型密钥</td>
+</tr>
+<tr>
+<td><code>DEEPSEEK_BASE_URL</code></td>
+<td>可选，模型网关地址</td>
+</tr>
+</tbody>
+</table>
+<h2 id="2-">2. 一次性准备</h2>
+<pre><code class="language-bat">pnpm -C code install --frozen-lockfile
+pnpm -C code run build
+</code></pre>
+<p>依赖没变就不用重装。验收测试 TC-01、TC-02 发现没装或没构建时，也会自动执行这两步。</p>
+<h2 id="3-">3. 沙箱</h2>
+<p>不需要单独启动。每个验收用例自己建一个临时目录（<code>%TEMP%\dscli-&lt;用例&gt;-&lt;XCODE_SANDBOX&gt;-*</code>），里面放 <code>DSH_HOME</code>、工作目录和会话文件；模型由本机模型桩提供，监听 <code>127.0.0.1</code> 的随机端口。多份副本可以同时跑，互不影响。用例结束后临时目录自动删除。</p>
+<p>测试进程会清掉继承来的 <code>DEEPSEEK_*</code>、<code>ANTHROPIC_*</code>、<code>DSCLI_*</code>、<code>DSH_*</code>、<code>CLAUDE_CODE_*</code> 变量，不会用到本机的真实密钥。</p>
+<h2 id="4-">4. 单元自测</h2>
+<table>
+<thead>
+<tr>
+<th>范围</th>
+<th>命令</th>
+<th>用例数</th>
+<th>耗时</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>输出协议自检</td>
+<td><code>node tests\run.mjs protocol</code></td>
+<td>4 项</td>
+<td>1 秒</td>
+</tr>
+<tr>
+<td>dsCli 单元测试（vitest）</td>
+<td><code>node tests\run.mjs unit</code></td>
+<td>3</td>
+<td>约 5 秒</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5-e2e">5. 验收测试（e2e）</h2>
+<p>覆盖的主流程（需求 #14，0.01）：</p>
+<ol>
+<li><code>-p</code> 非交互调用：位置参数和 stdin 输入，text / json / stream-json 输出，退出码。</li>
+<li>会话：<code>--session-id</code> 新建、<code>-r</code> 续接、续接不存在的会话时的报错。</li>
+<li>工具与权限：<code>--tools</code>、<code>--allowedTools</code>、<code>--disallowedTools</code>，各权限模式。</li>
+<li>配置：<code>dscli</code> profile 的配置树、<code>DSCLI_PATCH</code>、模型地址和密钥读取。</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>命令</th>
+<th>用例数</th>
+<th>耗时</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>黑盒验收（模型桩）</td>
+<td><code>node tests\run.mjs acceptance</code></td>
+<td>44</td>
+<td>约 3 分钟</td>
+</tr>
+<tr>
+<td>某个需求的验收</td>
+<td><code>node tests\run.mjs acceptance --only req_&lt;需求编号&gt;</code></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>真实模型 e2e（手动）</td>
+<td><code>node tests\run.mjs e2e</code></td>
+<td>0（暂无）</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>全量测试</strong> <code>node tests\run.mjs</code>：2026-11-09 实测 193 秒。</p>
+<h2 id="6-">6. 已知失败</h2>
+<p>需求 #14 开发结束时有 9 条验收用例失败。开发 AI 认为是测试桩本身的缺陷，写在需求 #14 文档目录的 <code>用例质疑.md</code> 里，等待裁决。完整列表见 <code>xcode.yaml</code> 的 <code>known_failures</code>：</p>
+<table>
+<thead>
+<tr>
+<th>用例</th>
+<th>原因</th>
+<th>负责人</th>
+<th>计划修复</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>acceptance/p0 &gt; TC-12</code>、<code>TC-14</code></td>
+<td>用例质疑待裁决</td>
+<td>张永</td>
+<td>需求 #14 裁决后</td>
+</tr>
+<tr>
+<td><code>acceptance/p1a &gt; TC-24</code>、<code>TC-25</code>、<code>TC-27</code>、<code>TC-29</code>、<code>TC-30</code></td>
+<td>同上</td>
+<td>张永</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>acceptance/p1c &gt; TC-47</code>、<code>TC-48</code></td>
+<td>同上</td>
+<td>张永</td>
+<td>同上</td>
+</tr>
+</tbody>
+</table>
+<h2 id="7-">7. 常见问题</h2>
+<table>
+<thead>
+<tr>
+<th>现象</th>
+<th>处理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>unit &gt; 依赖未安装</code></td>
+<td>执行第 2 节的准备命令</td>
+</tr>
+<tr>
+<td>验收用例报「dsCli 实现不存在」</td>
+<td><code>code\apps\cli\lib\bin.js</code> 没有构建：<code>pnpm -C code run build</code></td>
+</tr>
+<tr>
+<td>想看失败用例留下的现场</td>
+<td>设 <code>DSCLI_KEEP_TEMP=1</code> 再跑，临时目录会保留，路径打印在 stderr</td>
+</tr>
+<tr>
+<td>只想重跑几条用例</td>
+<td><code>node tests\run.mjs acceptance --grep &quot;TC-1[24]&quot;</code></td>
+</tr>
+<tr>
+<td>本地服务连不上</td>
+<td>开了代理时设 <code>NO_PROXY=127.0.0.1,localhost</code></td>
+</tr>
+<tr>
+<td>输出里看不到 <code>✖</code></td>
+<td>正常：协议规定失败行用 <code>✕</code>（见测试规范 4.1）</td>
+</tr>
+</tbody>
+</table>
+</article></body></html>

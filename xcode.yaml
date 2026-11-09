@@ -1,0 +1,84 @@
+# dsCli 自测配置，格式按 xCode《老项目自动化测试标准》v1.0。规则说明见 docs/测试规范.md。
+# 平台目前读取的是 xcode.json 的 test_cmd；本文件是完整配置，xCode 落地读取 xcode.yaml 后生效。
+# 所有命令在仓库根目录执行。
+
+version: 1
+
+# 一次性准备：新副本第一次使用前执行
+prepare:
+  - pnpm -C code install --frozen-lockfile
+  - pnpm -C code run build
+
+# dsCli 没有数据库、缓存和常驻服务。隔离在每个用例内部完成（临时 DSH_HOME + 本机模型桩，见测试规范第 6 节），
+# 所以沙箱是空操作
+sandbox:
+  up: node -e ""
+  ready: node -e ""
+  down: node -e ""
+  timeout: 10
+
+unit:
+  - name: dsCli 单元测试
+    run: node tests\run.mjs protocol unit
+
+e2e:
+  # 黑盒验收：本机模型桩，不联网，进全量测试
+  - name: 验收测试
+    run: node tests\run.mjs acceptance
+    needs_sandbox: false
+  # 真实模型 e2e 需要 DEEPSEEK_API_KEY、有费用、结果不稳定，不在这里跑，手动执行 node tests\run.mjs e2e
+
+# 受保护的测试文件（测试规范第 8 节）。不要用 **/*.spec.ts，那会把上游 DSH 的测试也保护起来
+test_globs:
+  - "tests/**"
+  - "xcode.json"
+  - "xcode.yaml"
+  - "code/packages/claude-compat/**/tests/**"
+  - "code/packages/bundle/dscli/tests/**"
+  - "code/**/*dscli*.spec.ts"
+
+env:
+  DEEPSEEK_API_KEY: 真实模型密钥，只有 e2e 用；全量测试不需要
+
+# 需求 #14（0.01）开发结束时仍失败的验收用例。开发 AI 认为是测试桩本身的缺陷（重复的 tool_use ID、
+# 续接用例计数、命令行吞参），详见需求 #14 文档目录的 用例质疑.md，等待裁决
+known_failures:
+  - name: "js: acceptance/p0 > TC-12 [P0] --tools 白名单生效，输出使用 Claude 工具名"
+    reason: 用例质疑.md 待裁决
+    owner: 张永
+    until: 需求 #14 裁决后
+  - name: "js: acceptance/p0 > TC-14 [P0] -r 续接成功，保留上一轮上下文"
+    reason: 用例质疑.md 待裁决
+    owner: 张永
+    until: 需求 #14 裁决后
+  - name: "js: acceptance/p1a > TC-24 [P1] 长文本与长工具结果不截断（≥ 40 KiB）"
+    reason: 用例质疑.md 待裁决
+    owner: 张永
+    until: 需求 #14 裁决后
+  - name: "js: acceptance/p1a > TC-25 [P1] 续接时不输出上一轮的旧 result"
+    reason: 用例质疑.md 待裁决
+    owner: 张永
+    until: 需求 #14 裁决后
+  - name: "js: acceptance/p1a > TC-27 [P1] --allowedTools 不能突破 --tools，--disallowedTools 优先"
+    reason: 用例质疑.md 待裁决
+    owner: 张永
+    until: 需求 #14 裁决后
+  - name: "js: acceptance/p1a > TC-29 [P1] bypassPermissions 全放行，plan 只放行只读工具"
+    reason: 用例质疑.md 待裁决
+    owner: 张永
+    until: 需求 #14 裁决后
+  - name: "js: acceptance/p1a > TC-30 [P1] acceptEdits 只放行工作目录与 --add-dir 内的编辑"
+    reason: 用例质疑.md 待裁决
+    owner: 张永
+    until: 需求 #14 裁决后
+  - name: "js: acceptance/p1c > TC-47 [P1] --tools 逗号/空格等价，保留 variadic 吞参行为"
+    reason: 用例质疑.md 待裁决
+    owner: 张永
+    until: 需求 #14 裁决后
+  - name: "js: acceptance/p1c > TC-48 [P1] dontAsk 与 auto 权限模式"
+    reason: 用例质疑.md 待裁决
+    owner: 张永
+    until: 需求 #14 裁决后
+
+# 2026-11-09 实测：全量 193 秒（protocol + unit 约 5 秒，验收 44 条约 3 分钟，已构建的副本）
+duration: 约 4 分钟（已构建）；新副本首次另加 prepare 的安装和构建时间

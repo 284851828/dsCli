@@ -1,1 +1,1 @@
-{"test_cmd": "node tests\\run-acceptance.mjs"}
+{"test_cmd": "node tests\\run.mjs"}
