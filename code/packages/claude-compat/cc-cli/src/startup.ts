@@ -26,6 +26,9 @@ export const CLAUDE_CODE_VERSION = '2.1.319'
 /** The `--version` output. */
 export const VERSION = `${CLAUDE_CODE_VERSION} (Claude Code compatible; dsCli 0.1.0)`
 
+/** Tutorial hint printed as the last line of the dscli help. */
+const DOC_HINT = '文档：docs/使用教程.html'
+
 /** Output shape selected on the command line. */
 export type OutputFormat = 'text' | 'json' | 'stream-json'
 
@@ -130,6 +133,7 @@ Examples:
   dsCli -p --output-format stream-json --verbose "read a.txt"
   dsCli -p --resume <session-id> "continue"
 `)
+    .addHelpText('after', DOC_HINT)
 }
 
 /** Whether the environment asks unknown flags to fail instead of warn. */
