@@ -48,10 +48,17 @@ export interface PermissionState {
   readonly deniedCallIds: Set<string>
 }
 
+/** Resolves a Claude Code tool name to the DSH tool, or every DSH tool, it stands for. */
+export type ToDsh = (name: string) => string | readonly string[] | undefined
+
 /** The permission service. */
 export interface CcPermissions {
-  /** Parse rules once per run. */
-  createState(setup: PermissionSetup, cwd: string, toDsh: (name: string) => string | undefined): PermissionState
+  /**
+   * Parse rules once per run. `toDsh` names the DSH tool or tools behind a
+   * Claude Code tool name, so a bare `--disallowedTools Read` hides
+   * `read_image` together with `read`.
+   */
+  createState(setup: PermissionSetup, cwd: string, toDsh: ToDsh): PermissionState
   /** Decide one call; `toolName` is already the Claude-facing name. */
   decide(state: PermissionState, toolName: string, args: unknown): PermissionDecision
   /** Record a denial once per call id. */
@@ -193,14 +200,15 @@ function acceptsRule(rule: PermissionRule): boolean {
   return rule.tool === 'Read' || EDIT_TOOLS.has(rule.tool)
 }
 
-function createState(setup: PermissionSetup, cwd: string, toDsh: (name: string) => string | undefined): PermissionState {
+function createState(setup: PermissionSetup, cwd: string, toDsh: ToDsh): PermissionState {
   const allowed = setup.allowedRules.map(parseRule)
   const disallowed = setup.disallowedRules.map(parseRule)
   const disallowedDsH = new Set<string>()
   for (const rule of disallowed) {
     if (rule.spec !== undefined) continue
     const mapped = toDsh(rule.tool)
-    if (mapped !== undefined) disallowedDsH.add(mapped)
+    if (mapped === undefined) continue
+    for (const native of typeof mapped === 'string' ? [mapped] : mapped) disallowedDsH.add(native)
   }
   return {
     mode: setup.permissionMode,

@@ -27,5 +27,14 @@ Unknown flags warn and are dropped (`DSCLI_STRICT=1` makes them fatal).
 - `-c` picks the newest Session **created** in the working directory, not the most recently updated one.
 - Session logs are plain JSONL under `$DSH_HOME/sessions` (default `~/.dsh`), not `~/.claude/projects`.
 - On Windows, `Bash` maps to the native `pwsh` tool and is reported as `PowerShell`.
+- Reading images: Claude Code's `Read` returns an image file as an image; DSH splits that into `read` (text) and `read_image`. `read_image` is reported as `Read`, and `Read(path)` allow and deny rules cover it. With `Read` in `--tools` the model gets `read` alone by default; to offer `read_image` as well (for screenshots, say), turn on `readImage` for `cc-runner` in a profile patch, on a route whose model declares image input:
+
+  ```yaml
+  - id: cc-runner
+    config:
+      readImage: true
+  ```
+
+  Without `--tools`, `read_image` is always available. On a model without image input, `read_image` refuses and says why.
 - `--version` prints `2.1.319 (Claude Code compatible; dsCli 0.1.0)`; the launcher keeps `-V` for its own version.
 - Shell permission rules use prefix matching on simple command segments, not a full shell parser.

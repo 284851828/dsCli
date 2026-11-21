@@ -26,5 +26,14 @@ dsCli：基于 DeepSeek Harness 核心、与 Claude Code 兼容的非交互命�
 - `-c` 选当前目录下**创建时间**最新的会话，而不是最近更新的会话。
 - 会话日志是 `$DSH_HOME/sessions`（默认 `~/.dsh`）下的纯 JSONL，不写 `~/.claude/projects`。
 - Windows 上 `Bash` 映射到原生 `pwsh` 工具，对外报告为 `PowerShell`。
+- 读图片：Claude Code 的 `Read` 能直接读出图片，DSH 把它分成 `read`（文本）和 `read_image` 两个工具。`read_image` 对外报告为 `Read`，`Read(路径)` 的放行和拒绝规则对它同样生效。`--tools` 里写了 `Read` 时，默认只给模型 `read`；要让模型同时拿到 `read_image`（比如需要看截图），在 profile 补丁里打开 `cc-runner` 的 `readImage`，并且当前模型路由要声明支持图片输入：
+
+  ```yaml
+  - id: cc-runner
+    config:
+      readImage: true
+  ```
+
+  不写 `--tools` 时 `read_image` 一直可用。模型不支持图片时，`read_image` 会直接拒绝并说明原因。
 - `--version` 输出 `2.1.319 (Claude Code compatible; dsCli 0.1.0)`；启动器自身版本改用 `-V`。
 - 命令权限规则按简单命令段做前缀匹配，不做完整 shell 解析。

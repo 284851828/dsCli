@@ -17,6 +17,12 @@ export const CC_TOOL_NAMES_SERVICE = 'ccToolNames'
 export interface CcToolNames {
   /** Map a Claude Code tool name to its DSH tool, or `undefined` when unsupported. */
   toDsh(name: string): string | undefined
+  /**
+   * Every DSH tool one Claude Code tool stands for: the {@link toDsh} tool
+   * first, then its companions. Empty when unsupported. A companion is
+   * optional — the caller keeps only those the profile actually registers.
+   */
+  toDshAll(name: string): readonly string[]
   /** Map a DSH tool name back to the Claude Code name shown on stdout. */
   toClaude(name: string): string
 }
@@ -46,8 +52,22 @@ const CLAUDE_TO_DSH: Readonly<Record<string, string>> = {
   Task: 'subagent',
 }
 
+/**
+ * DSH tools that ride on another Claude Code tool's name because Claude Code
+ * has no separate tool for them. Claude Code's `Read` returns an image file as
+ * an image; DSH splits that into `read` (text) and `read_image`. Without this
+ * row `--tools Read` hides `read_image`, and the model can only fail on a
+ * screenshot with "binary file".
+ */
+const DSH_COMPANIONS: Readonly<Record<string, readonly string[]>> = {
+  Read: ['read_image'],
+}
+
 const DSH_TO_CLAUDE: Readonly<Record<string, string>> = {
   read: 'Read',
+  // Reported and permission-checked as `Read`, so `Read(path)` allow and deny
+  // rules cover images too.
+  read_image: 'Read',
   write: 'Write',
   edit: 'Edit',
   glob: 'Glob',
@@ -65,6 +85,12 @@ function toDsh(toolName: string): string | undefined {
   return CLAUDE_TO_DSH[toolName]
 }
 
+function toDshAll(toolName: string): readonly string[] {
+  const primary = toDsh(toolName)
+  if (primary === undefined) return []
+  return [primary, ...DSH_COMPANIONS[toolName] ?? []]
+}
+
 function toClaude(toolName: string): string {
   if (toolName.startsWith('mcp__')) return toolName
   return DSH_TO_CLAUDE[toolName] ?? toolName
@@ -75,5 +101,5 @@ function toClaude(toolName: string): string {
  * @param ctx - plugin context.
  */
 export function apply(ctx: Context): void {
-  ctx.provide(CC_TOOL_NAMES_SERVICE, { toDsh, toClaude } satisfies CcToolNames)
+  ctx.provide(CC_TOOL_NAMES_SERVICE, { toDsh, toDshAll, toClaude } satisfies CcToolNames)
 }

@@ -7,7 +7,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type { Agent, AgentOptions, AgentSetup } from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentOptions, AgentSetup, ModelSelection } from '@deepseek-ai/dsh-agent'
 import { installModelSelection } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
@@ -48,10 +48,20 @@ export const inject = [
 export interface Config {
   /** Alias → model id or `provider/model`; empty targets keep the profile default. */
   modelAliases?: Record<string, string>
+  /**
+   * Offer `read_image` wherever `--tools` offers Claude Code's `Read`, so the
+   * model can look at a screenshot the way Claude Code's `Read` does. Applies
+   * only to a route that declares image input. Off by default: the 0.01
+   * acceptance baseline fixes the model-side tool definitions of `--tools
+   * Read` at `read` alone, so a deployment that wants image reading turns it
+   * on in its profile patch.
+   */
+  readImage?: boolean
 }
 
 export const Config: z<Config> = z.object({
   modelAliases: z.dict(z.string()),
+  readImage: z.boolean().default(false),
 })
 
 /** Process-facing effects of one run. */
@@ -134,6 +144,23 @@ async function reportFailure(
 }
 
 /**
+ * Whether the selected route declares image input. An unknown or unresolvable
+ * capability counts as no, the same strict reading `read_image` applies to
+ * itself before it touches the file.
+ * @param ctx - context carrying the LLM registry.
+ * @param selection - this run's exact provider and model.
+ * @returns true only when the route's model info lists `image`.
+ */
+async function routeAcceptsImages(ctx: Context, selection: ModelSelection): Promise<boolean> {
+  try {
+    const info = await ctx.llm.resolveModelInfo(selection.provider, selection.model)
+    return info.inputModalities?.includes('image') === true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Run one task through one Agent and request process exit.
  * @param ctx - plugin context carrying all dscli services plus the core registry.
  * @param config - alias overrides.
@@ -166,6 +193,13 @@ async function run(ctx: Context, config: Config, io: CcIo): Promise<void> {
       config,
     )
 
+    // Claude Code's `Read` also returns images. DSH keeps that in `read_image`,
+    // which rides on `--tools Read` when the deployment asks for it, and only
+    // for a route that can inspect the result: the tool refuses every other
+    // route, so offering it to a text-only model would spend a turn on a
+    // certain refusal.
+    const offerReadImage = config.readImage === true && await routeAcceptsImages(ctx, selection)
+
     const fs = ctx.get('fs')
     const cwd = fs === undefined ? process.cwd() : fs.processPath(await fs.resolve('.'))
     const agentOptions: AgentOptions = { ...selection }
@@ -179,22 +213,29 @@ async function run(ctx: Context, config: Config, io: CcIo): Promise<void> {
       if (startup.tools !== undefined) {
         const allow: string[] = []
         for (const requested of startup.tools) {
-          const native = names.toDsh(requested)
+          const [native, ...companions] = names.toDshAll(requested)
           if (native === undefined || !visible.has(native)) {
             internals.stderr.write(`dsCli: tool "${requested}" is not available, ignored\n`)
             continue
           }
-          allow.push(native)
+          // A companion is optional: `read_image` beside `read` exists only
+          // while the profile mounts an attachment store, and is offered only
+          // when the deployment enables it for an image-capable route.
+          allow.push(native, ...companions.filter(companion =>
+            visible.has(companion) && (companion !== 'read_image' || offerReadImage)))
         }
         agentCtx.tools.restrict({ allow })
       }
       const deny = startup.disallowedRules
         .filter(rule => !rule.includes('('))
-        .map(rule => names.toDsh(rule))
-        .filter((native): native is string => native !== undefined && visible.has(native))
+        .flatMap(rule => names.toDshAll(rule))
+        .filter(native => visible.has(native))
       if (deny.length > 0) agentCtx.tools.restrict({ deny })
 
-      initTools = agentCtx.tools.definitions(scopeOf(agentCtx)).map(definition => names.toClaude(definition.name))
+      // Several DSH tools can share one Claude name (`read` and `read_image` are both `Read`).
+      initTools = [...new Set(
+        agentCtx.tools.definitions(scopeOf(agentCtx)).map(definition => names.toClaude(definition.name)),
+      )]
       installPromptSections(agentCtx, startup.systemPrompt, startup.appendSystemPrompt)
       // Claude Code sends context reminders before the prompt, so the prompt
       // stays the last user text the model reads.
@@ -247,7 +288,7 @@ async function run(ctx: Context, config: Config, io: CcIo): Promise<void> {
         addDirs: startup.addDirs,
       },
       cwd,
-      name => names.toDsh(name),
+      name => names.toDshAll(name),
     )
     const state = permissionState
 
