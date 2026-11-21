@@ -51,17 +51,16 @@ export interface Config {
   /**
    * Offer `read_image` wherever `--tools` offers Claude Code's `Read`, so the
    * model can look at a screenshot the way Claude Code's `Read` does. Applies
-   * only to a route that declares image input. Off by default: the 0.01
-   * acceptance baseline fixes the model-side tool definitions of `--tools
-   * Read` at `read` alone, so a deployment that wants image reading turns it
-   * on in its profile patch.
+   * only to a route that declares image input. On by default; a deployment
+   * that must keep the model-side tool definitions of `--tools Read` at `read`
+   * alone turns it off in its profile patch.
    */
   readImage?: boolean
 }
 
 export const Config: z<Config> = z.object({
   modelAliases: z.dict(z.string()),
-  readImage: z.boolean().default(false),
+  readImage: z.boolean().default(true),
 })
 
 /** Process-facing effects of one run. */
@@ -194,11 +193,11 @@ async function run(ctx: Context, config: Config, io: CcIo): Promise<void> {
     )
 
     // Claude Code's `Read` also returns images. DSH keeps that in `read_image`,
-    // which rides on `--tools Read` when the deployment asks for it, and only
-    // for a route that can inspect the result: the tool refuses every other
-    // route, so offering it to a text-only model would spend a turn on a
+    // which rides on `--tools Read` unless the deployment turns that off, and
+    // only for a route that can inspect the result: the tool refuses every
+    // other route, so offering it to a text-only model would spend a turn on a
     // certain refusal.
-    const offerReadImage = config.readImage === true && await routeAcceptsImages(ctx, selection)
+    const offerReadImage = config.readImage !== false && await routeAcceptsImages(ctx, selection)
 
     const fs = ctx.get('fs')
     const cwd = fs === undefined ? process.cwd() : fs.processPath(await fs.resolve('.'))
@@ -220,7 +219,7 @@ async function run(ctx: Context, config: Config, io: CcIo): Promise<void> {
           }
           // A companion is optional: `read_image` beside `read` exists only
           // while the profile mounts an attachment store, and is offered only
-          // when the deployment enables it for an image-capable route.
+          // to an image-capable route, unless the deployment turned it off.
           allow.push(native, ...companions.filter(companion =>
             visible.has(companion) && (companion !== 'read_image' || offerReadImage)))
         }

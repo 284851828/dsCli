@@ -181,7 +181,8 @@ test('TC-33 [P1] --append-system-prompt 追加、--system-prompt 替换且保留
   const appendSystem = systemTextOf(appendRequest.body)
   assert.ok(appendSystem.includes('APPEND-MARKER-42'), '请求 system 应包含 APPEND-MARKER-42')
   assert.ok(appendSystem.length > 'APPEND-MARKER-42'.length + 100, '追加提示词时应保留原有系统提示片段')
-  assert.deepEqual(appendRequest.body.tools.map(tool => tool.name), ['read'], '追加提示词不应改变工具定义')
+  // 2026-11-21 起 Read 默认带出读图片的 read_image（模型支持图片时）
+  assert.deepEqual(appendRequest.body.tools.map(tool => tool.name).sort(), ['read', 'read_image'], '追加提示词不应改变工具定义')
 
   stub.reset()
   const replaced = await runCli({

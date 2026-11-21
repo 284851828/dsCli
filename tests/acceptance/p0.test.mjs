@@ -456,7 +456,8 @@ test('TC-12 [P0] --tools 白名单生效，输出使用 Claude 工具名', async
 
   const firstRequest = stub.taskRequests()[0]
   const requested = firstRequest.body.tools.map(tool => tool.name).sort()
-  assert.deepEqual(requested, ['glob', 'grep', 'read'], `模型侧工具定义应为 DSH 原生名，实际 ${JSON.stringify(requested)}`)
+  // 2026-11-21 起 Read 默认带出读图片的 read_image（模型支持图片时），模型侧多一个原生工具，对外仍只显示 Read
+  assert.deepEqual(requested, ['glob', 'grep', 'read', 'read_image'], `模型侧工具定义应为 DSH 原生名，实际 ${JSON.stringify(requested)}`)
 
   const uses = toolUses(events)
   const readUse = uses.find(use => use.name === 'Read')

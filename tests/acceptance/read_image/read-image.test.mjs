@@ -20,7 +20,7 @@ import {
 } from '../../lib/harness.mjs'
 
 // 模型桩走 llm-deepseek 路由。声明一个支持图片的模型和一个只支持文本的模型。
-// READ_IMAGE_PATCH 再打开「Read 带出读图片」的开关（默认关闭）。
+// 「Read 带出读图片」默认打开；READ_IMAGE_OFF_PATCH 把它关掉。
 const MODELS_PATCH = `- id: llm-deepseek
   config:
     models:
@@ -32,9 +32,9 @@ const MODELS_PATCH = `- id: llm-deepseek
         name: Stub Text
         contextWindow: 1048576
 `
-const READ_IMAGE_PATCH = `${MODELS_PATCH}- id: cc-runner
+const READ_IMAGE_OFF_PATCH = `${MODELS_PATCH}- id: cc-runner
   config:
-    readImage: true
+    readImage: false
 `
 
 /** 生成一张合法的 8 位 RGB PNG，不依赖任何图片库。 */
@@ -78,17 +78,17 @@ async function setup(t, tc, responder) {
   const ws = await makeWorkspace(t, tc)
   const stub = await startStub(responder)
   t.after(() => stub.close())
-  const patch = await writeFile(path.join(ws.root, 'read-image.yml'), READ_IMAGE_PATCH)
-  const modelsOnly = await writeFile(path.join(ws.root, 'models.yml'), MODELS_PATCH)
+  const patch = await writeFile(path.join(ws.root, 'models.yml'), MODELS_PATCH)
+  const turnedOff = await writeFile(path.join(ws.root, 'read-image-off.yml'), READ_IMAGE_OFF_PATCH)
   const shot = path.join(ws.cwd, 'shots', 'page.png')
   await fsp.mkdir(path.dirname(shot), { recursive: true })
   await fsp.writeFile(shot, pngBytes(16, 12, [200, 30, 30]))
-  return { ws, stub, patch, modelsOnly, shot }
+  return { ws, stub, patch, turnedOff, shot }
 }
 
 const BASE = ['-p', '--output-format', 'stream-json', '--verbose']
 
-test('TC-01 [P0] 打开开关且模型支持图片：--tools Read 带出 read_image，读图成功并显示为 Read', async (t) => {
+test('TC-01 [P0] 模型支持图片：--tools Read 默认带出 read_image，读图成功并显示为 Read', async (t) => {
   const { ws, stub, patch, shot } = await setup(t, 'RI-01', ({ n }) => (
     n === 1 ? { calls: [{ name: 'read_image', input: { file_path: shot } }] } : { text: '看到了一张红色的图' }
   ))
@@ -104,7 +104,7 @@ test('TC-01 [P0] 打开开关且模型支持图片：--tools Read 带出 read_im
 
   const requests = stub.taskRequests()
   assert.deepEqual(requestedToolNames(requests[0].body).sort(), ['read', 'read_image'],
-    '打开开关且模型支持图片时，--tools Read 应同时给出 read 和 read_image')
+    '模型支持图片时，--tools Read 默认应同时给出 read 和 read_image')
   assert.deepEqual(eventsOfType(events, 'system')[0].tools, ['Read'], 'init.tools 里两个工具合并显示为一个 Read')
 
   const uses = toolUses(events)
@@ -152,7 +152,7 @@ test('TC-02 [P0] Read 的路径拒绝规则同样挡住读图片', async (t) => 
   assert.equal(stub.requests.some(request => String(request.url).includes('/files')), false, '被挡住的图片也不能上传到文件接口')
 })
 
-test('TC-03 [P1] 打开开关但模型只支持文本：--tools Read 的工具定义不变，只有 read', async (t) => {
+test('TC-03 [P1] 模型只支持文本：--tools Read 的工具定义不变，只有 read', async (t) => {
   const { ws, stub, patch } = await setup(t, 'RI-03', () => ({ text: 'OK' }))
 
   const run = await runCli({
@@ -167,8 +167,8 @@ test('TC-03 [P1] 打开开关但模型只支持文本：--tools Read 的工具�
   assert.deepEqual(eventsOfType(jsonLines(run.stdout), 'system')[0].tools, ['Read'])
 })
 
-test('TC-04 [P1] 不限定工具时，读图片按 Read 放行，不再被当成未授权的工具（不需要开关）', async (t) => {
-  const { ws, stub, modelsOnly: patch, shot } = await setup(t, 'RI-04', ({ n }) => (
+test('TC-04 [P1] 不限定工具时，读图片按 Read 放行，不再被当成未授权的工具', async (t) => {
+  const { ws, stub, patch, shot } = await setup(t, 'RI-04', ({ n }) => (
     n === 1 ? { calls: [{ name: 'read_image', input: { file_path: shot } }] } : { text: '看到了' }
   ))
 
@@ -189,17 +189,17 @@ test('TC-04 [P1] 不限定工具时，读图片按 Read 放行，不再被当成
   assert.deepEqual(eventsOfType(events, 'result').at(-1).permission_denials, [])
 })
 
-test('TC-05 [P0] 开关默认关闭：模型支持图片，--tools Read 的工具定义仍只有 read', async (t) => {
-  const { ws, stub, modelsOnly } = await setup(t, 'RI-05', () => ({ text: 'OK' }))
+test('TC-05 [P1] 在配置里关掉开关：模型支持图片，--tools Read 也只给 read', async (t) => {
+  const { ws, stub, turnedOff } = await setup(t, 'RI-05', () => ({ text: 'OK' }))
 
   const run = await runCli({
     args: [...BASE, '--model', 'stub-vision', 'hi', '--tools', 'Read'],
     cwd: ws.cwd,
     env: stubEnv(ws, stub),
-    patches: [modelsOnly],
+    patches: [turnedOff],
   })
   assert.equal(run.code, 0, `退出码应为 0，stderr：${run.stderr.slice(-2000)}`)
   assert.deepEqual(requestedToolNames(stub.taskRequests()[0].body), ['read'],
-    '没打开开关时，--tools Read 的模型侧工具定义不能变（0.01 的验收基线）')
+    'cc-runner 的 readImage 设为 false 后，--tools Read 的模型侧工具定义只有 read')
   assert.deepEqual(eventsOfType(jsonLines(run.stdout), 'system')[0].tools, ['Read'])
 })
